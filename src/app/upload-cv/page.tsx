@@ -1,12 +1,193 @@
 'use client';
 
-export default function UploadCV() {
+import { useState, ChangeEvent, FormEvent } from 'react';
+import RecommendationsCarousel from '@/components/RecommendationsCarousel';
+import { Job } from '@/lib/fetchJobs';
+
+type SkillResponse = {
+  technicalSkills?: string[];
+  softSkills?: string[];
+};
+
+export default function UploadCVPage() {
+  const [file, setFile] = useState<File | null>(null);
+  const [skills, setSkills] = useState<SkillResponse>({});
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [roles, setRoles] = useState<string[]>([]);
+  const [minSalary, setMinSalary] = useState<number>(0);
+  const [loadingSkills, setLoadingSkills] = useState(false);
+  const [loadingRecs, setLoadingRecs] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const onFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setError(null);
+    setSkills({});
+    setJobs([]);
+    setFile(e.target.files?.[0] || null);
+  };
+
+  const extractSkills = async (e: FormEvent): Promise<void> => {
+    e.preventDefault();
+    if (!file) {
+      setError('Please select a file first.');
+      return;
+    }
+
+    setError(null);
+    setLoadingSkills(true);
+    setSkills({});
+    setJobs([]);
+
+    try {
+      const fd = new FormData();
+      fd.append('cv', file);
+      const res = await fetch('/api/extractCVSkills', { method: 'POST', body: fd });
+      const json = await res.json();
+      if (json.error) throw new Error(json.error);
+
+      if (json.skills && typeof json.skills === 'object' && !Array.isArray(json.skills)) {
+        setSkills(json.skills);
+      } else if (Array.isArray(json.skills)) {
+        setSkills({ technicalSkills: json.skills });
+      }
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      }
+    } finally {
+      setLoadingSkills(false);
+    }
+    return;
+  };
+
+  const getRecommendations = async (): Promise<void> => {
+    const tech = skills.technicalSkills || [];
+    if (!tech.length) {
+      setError('No skills to base recommendations on');
+      return;
+    }
+
+    setError(null);
+    setLoadingRecs(true);
+
+    try {
+      const payload = { skills, roles, minSalary };
+      const res = await fetch('/api/recommendations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const { recommended } = await res.json();
+
+      // **Transform** LLM JSON → Job[]
+      type RecommendedJob = {
+        title?: string;
+        company?: string;
+        location?: string;
+        url?: string;
+      };
+
+      const jobsData = (recommended || []).map((r: RecommendedJob) => ({
+        job_title: r.title ?? '',
+        employer_name: r.company ?? '',
+        job_city: r.location,
+        job_country: '',
+        employer_logo: '',
+        job_apply_link: r.url ?? '',
+      }));
+      setJobs(jobsData);
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        setError(e.message);
+      }
+    } finally {
+      setLoadingRecs(false);
+    }
+    return;
+  };
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen text-center p-8">
-      <h1 className="text-4xl font-bold mb-4 text-gray-900 dark:text-white">📄 Upload Your CV</h1>
-      <p className="text-gray-600 dark:text-gray-400">
-        Upload your resume to get smart recommendations.
-      </p>
-    </div>
+    <main className="p-6 space-y-8 max-w-2xl mx-auto">
+      <h1 className="text-3xl font-bold">📄 Upload Your CV</h1>
+
+      {error && <p className="text-red-500">⚠️ {error}</p>}
+
+      <form onSubmit={extractSkills} className="flex flex-col gap-4">
+        <input
+          type="file"
+          accept=".pdf,.docx,.txt"
+          onChange={onFileChange}
+          className="p-2 border rounded"
+        />
+        <button
+          type="submit"
+          disabled={!file || loadingSkills}
+          className="px-4 py-2 bg-green-600 text-white rounded disabled:opacity-50"
+        >
+          {loadingSkills ? 'Extracting…' : 'Extract Skills'}
+        </button>
+      </form>
+
+      {/* Skills */}
+      {(skills.technicalSkills?.length || skills.softSkills?.length) && (
+        <section className="space-y-4">
+          <h2 className="text-2xl font-semibold">🔧 Extracted Skills</h2>
+          {skills.technicalSkills && (
+            <div>
+              <h3 className="font-medium">Technical</h3>
+              <ul className="list-disc pl-5">
+                {skills.technicalSkills.map((s) => (
+                  <li key={s}>{s}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {skills.softSkills && (
+            <div>
+              <h3 className="font-medium">Soft</h3>
+              <ul className="list-disc pl-5">
+                {skills.softSkills.map((s) => (
+                  <li key={s}>{s}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Preferences */}
+          <div className="mt-4 space-y-2">
+            <h3 className="font-medium">🎯 Fine-tune Recommendations</h3>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Desired roles, comma-separated"
+                onChange={(e) => setRoles(e.target.value.split(',').map((r) => r.trim()))}
+                className="p-2 border rounded flex-1"
+              />
+              <input
+                type="number"
+                placeholder="Min salary"
+                onChange={(e) => setMinSalary(Number(e.target.value))}
+                className="p-2 border rounded w-32"
+              />
+            </div>
+            <button
+              onClick={getRecommendations}
+              disabled={loadingRecs}
+              className="px-4 py-2 bg-purple-600 text-white rounded disabled:opacity-50"
+            >
+              {loadingRecs ? 'Recommending…' : 'Get Recommendations'}
+            </button>
+          </div>
+        </section>
+      )}
+
+      {/* Carousel */}
+      {jobs.length > 0 && (
+        <section className="mt-8">
+          <h2 className="text-2xl font-semibold">🚀 Recommended for You</h2>
+          <RecommendationsCarousel jobs={jobs} />
+        </section>
+      )}
+    </main>
   );
 }

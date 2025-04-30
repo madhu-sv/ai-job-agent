@@ -1,36 +1,124 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🚀 AI Job Agent
 
-## Getting Started
+An AI-powered Job Search and CV Tailoring assistant built with:
 
-First, run the development server:
+- Next.js 14 (App Router, TypeScript, TailwindCSS)
+- RapidAPI (JSearch API)
+- OpenAI (LLM-based skill matching)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+---
+
+## 🏛 Project Structure
+
+```
+src/
+  app/
+    api/             # API routes (e.g., searchJobs)
+      searchJobs/
+        route.ts
+    job-recommendations/
+      page.tsx
+    upload-cv/
+      page.tsx
+    layout.tsx
+    page.tsx
+  components/        # Reusable UI (JobSearchForm, JobCard)
+    JobSearchForm.tsx
+    JobCard.tsx
+  hooks/             # Custom React hooks (optional)
+  utils/             # Helper functions (optional)
+  types/             # TypeScript types (optional)
+public/              # Static assets
+.husky/              # Git hooks
+.vscode/             # VSCode settings
+.github/             # GitHub Actions workflows
+package.json
+tsconfig.json
+next.config.ts
+tailwind.config.js
+postcss.config.js
+prettier.config.js
+pnpm-lock.yaml
+README.md           # You are here
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🚀 Getting Started
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. **Clone the repo**
 
-## Learn More
+```bash
+git clone https://github.com/your-username/ai-job-agent.git
+cd ai-job-agent
+```
 
-To learn more about Next.js, take a look at the following resources:
+2. **Install dependencies**
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+pnpm install
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+3. **Setup environment**
 
-## Deploy on Vercel
+Create a `.env.local` file in the project root:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```env
+RAPIDAPI_KEY=your-rapidapi-key-here
+OPENAI_API_KEY=your-openai-key-here
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+4. **Run in development**
+
+```bash
+pnpm dev
+```
+
+Browse at [http://localhost:3000](http://localhost:3000).
+
+---
+
+## 📦 Available Scripts
+
+| Command          | Description                |
+| ---------------- | -------------------------- |
+| `pnpm dev`       | Start development server   |
+| `pnpm build`     | Build for production       |
+| `pnpm start`     | Serve production build     |
+| `pnpm lint`      | Run ESLint                 |
+| `pnpm format`    | Run Prettier               |
+| `pnpm typecheck` | Run TypeScript type checks |
+| `pnpm test`      | Run unit tests             |
+
+---
+
+## ✅ Features
+
+- Dynamic job search (`/api/searchJobs`) via JSearch API
+- Filter by Full-time, Part-time, Contractor, Intern
+- Client-side search form (`JobSearchForm`)
+- Display results in responsive **JobCard** components
+- CV upload & AI-based skill suggestions
+- Save favorite jobs ⭐
+- Dark & Light theme
+- Husky pre-commit hooks (lint, format, typecheck)
+- GitHub Actions CI (lint, format-check, typecheck)
+
+---
+
+## 🛠 Tech Stack
+
+- **Next.js 14** with App Router
+- **TypeScript**
+- **TailwindCSS** for styling
+- **Prettier** for code formatting
+- **ESLint** for linting
+- **Jest + Testing Library** for tests
+- **Husky** & **lint-staged** for pre-commit hooks
+- **GitHub Actions** for CI
+
+---
+
+## 📄 License
+
+MIT
