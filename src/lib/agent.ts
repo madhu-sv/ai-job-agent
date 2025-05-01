@@ -38,7 +38,7 @@ export async function extractSkills(text: string): Promise<string[]> {
 export async function recommendJobs(
   skills: string[],
   roles: string[] = [],
-  minSalary = 0
+  minSalary = 0,
 ): Promise<Job[]> {
   // 1) Seed corpus
   const allJobs = await fetchAllJobs();
@@ -63,7 +63,10 @@ export async function recommendJobs(
 
   const client = getOpenAIClient();
   const list = filtered
-    .map((j, i) => `${i + 1}. ${j.job_title} at ${j.employer_name} – ${j.job_city || j.job_country || '—'}`)
+    .map(
+      (j, i) =>
+        `${i + 1}. ${j.job_title} at ${j.employer_name} – ${j.job_city || j.job_country || '—'}`,
+    )
     .join('\n');
   const prompt = `
 You are a job‐matching assistant.

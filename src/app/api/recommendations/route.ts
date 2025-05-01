@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     const errorMessage = e instanceof Error ? e.message : 'Unknown error';
     const resp = NextResponse.json(
       { error: 'Recommendation failed', details: errorMessage },
-      { status: 500 }
+      { status: 500 },
     );
     return Object.assign(resp, {
       json: async () => ({ error: 'Recommendation failed', details: errorMessage }),

@@ -22,7 +22,7 @@ export function getOpenAIClientNoThrow(): OpenAI | null {
     return null;
   }
   client = new OpenAI({ apiKey: key });
-    return client;
+  return client;
 }
 export function resetOpenAIClient() {
   client = null;
