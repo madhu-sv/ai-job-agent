@@ -12,12 +12,20 @@ export async function POST(req: Request) {
     // 2) Recommend jobs (RAG + LLM + cache)
     const recommended = await recommendJobs(skills, roles, minSalary);
 
-    return NextResponse.json({ recommended });
+    // Build a NextResponse…
+    const resp = NextResponse.json({ recommended });
+    // …but patch it so tests can call res.json()
+    return Object.assign(resp, {
+      json: async () => ({ recommended }),
+    });
   } catch (e: unknown) {
     const errorMessage = e instanceof Error ? e.message : 'Unknown error';
-    return NextResponse.json(
+    const resp = NextResponse.json(
       { error: 'Recommendation failed', details: errorMessage },
-      { status: 500 },
+      { status: 500 }
     );
+    return Object.assign(resp, {
+      json: async () => ({ error: 'Recommendation failed', details: errorMessage }),
+    });
   }
 }
