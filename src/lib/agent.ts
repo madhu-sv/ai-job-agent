@@ -3,16 +3,20 @@ import { getOpenAIClient } from './openaiClient';
 import { makeKey, getCache, setCache } from './cache';
 import { fetchAllJobs } from './fetchJobs';
 import { initJobIndex, retrieveJobs } from './retriever';
+import { buildRecommendationPrompt } from './promptTemplates';
+import { filterSkillsForRole } from './skillFilter';
 import type { Job } from './fetchJobs';
 
-/** Extract skills from a CV text (cached) */
+/**
+ * Extract a JSON array of skills from raw CV text.
+ */
 export async function extractSkills(text: string): Promise<string[]> {
   const key = makeKey('skills', text);
   const fromCache = getCache<string[]>(key);
   if (fromCache) return fromCache;
 
   const client = getOpenAIClient();
-  const res = await client.chat.completions.create({
+  const aiRes = await client.chat.completions.create({
     model: 'gpt-3.5-turbo',
     messages: [
       {
@@ -25,7 +29,7 @@ export async function extractSkills(text: string): Promise<string[]> {
 
   let skills: string[] = [];
   try {
-    skills = JSON.parse(res.choices[0].message.content ?? '[]');
+    skills = JSON.parse(aiRes.choices[0].message.content ?? '[]');
   } catch {
     skills = [];
   }
@@ -34,66 +38,53 @@ export async function extractSkills(text: string): Promise<string[]> {
   return skills;
 }
 
-/** Recommend jobs given extracted skills, optional roles & minSalary */
+/**
+ * Recommend jobs given skills, roles, salary and location.
+ */
 export async function recommendJobs(
   skills: string[],
   roles: string[] = [],
   minSalary = 0,
+  location = 'London'        // ← new param
 ): Promise<Job[]> {
-  // 1) Seed corpus
-  const allJobs = await fetchAllJobs();
+  // 1) Narrow skills to those most relevant to the roles
+  const relevantSkills = await filterSkillsForRole(skills, roles, 5, 0.3);
+
+  // 2) Seed the index with the desired role(s) in the given location
+  const roleQuery = roles.length ? roles.join(' ') : 'Software';
+  const allJobs = await fetchAllJobs(roleQuery, location, '');
   await initJobIndex(allJobs);
 
-  // 2) RAG: retrieve top 25 candidates by simple embedding similarity
-  const query = [...skills.slice(0, 5), ...roles].join(' ');
+  // 3) Retrieve a candidate pool
+  const query = [...relevantSkills, ...roles].join(' ');
   const candidates = await retrieveJobs(query, 25);
 
-  // 3) Filter by salary if present
-  const filtered = candidates.filter((j) => !j['salary'] || j['salary'] >= minSalary);
+  // 4) Optional salary filter
+  const filtered = candidates.filter((j) =>
+    !j['salary'] || j['salary'] >= minSalary
+  );
 
-  // 4) Cached LLM reranking
-  const key = makeKey('recs', {
-    skills,
+  // 5) Cache key now includes location as well
+  const cacheKey = makeKey('recs', {
+    skills: relevantSkills,
     roles,
     minSalary,
+    location,
     ids: filtered.map((j) => j.job_apply_link),
   });
-  const fromCache = getCache<Job[]>(key);
+  const fromCache = getCache<Job[]>(cacheKey);
   if (fromCache) return fromCache;
 
+  // 6) Build & send the templated prompt
+  const prompt = buildRecommendationPrompt(relevantSkills, roles, minSalary, filtered);
   const client = getOpenAIClient();
-  const list = filtered
-    .map(
-      (j, i) =>
-        `${i + 1}. ${j.job_title} at ${j.employer_name} – ${j.job_city || j.job_country || '—'}`,
-    )
-    .join('\n');
-  const prompt = `
-You are a job‐matching assistant.
-User skills: ${skills.join(', ')}
-Desired roles: ${roles.join(', ') || 'none'}
-Min salary: ${minSalary}
-
-Here are candidate jobs:
-${list}
-
-Please rank and return the top 5 job postings in JSON array of objects with keys:
-  - job_title
-  - employer_name
-  - job_city
-  - job_country
-  - employer_logo
-  - job_apply_link
-
-Only output the JSON array.
-`;
-
   const aiRes = await client.chat.completions.create({
     model: 'gpt-3.5-turbo',
     messages: [{ role: 'user', content: prompt }],
     temperature: 0,
   });
 
+  // 7) Parse or fallback
   let recs: Job[] = [];
   try {
     recs = JSON.parse(aiRes.choices[0].message.content ?? '[]');
@@ -101,36 +92,7 @@ Only output the JSON array.
     recs = filtered.slice(0, 5);
   }
 
-  setCache(key, recs);
+  // 8) Cache & return
+  setCache(cacheKey, recs);
   return recs;
-}
-export async function resetCache() {
-  setCache('skills', {});
-  setCache('recs', {});
-}
-export async function resetJobIndex() {
-  const allJobs = await fetchAllJobs();
-  await initJobIndex(allJobs);
-}
-export async function resetAll() {
-  await resetCache();
-  await resetJobIndex();
-}
-export async function resetAllJobs() {
-  const allJobs = await fetchAllJobs();
-  await initJobIndex(allJobs);
-}
-export async function resetAllSkills() {
-  setCache('skills', {});
-}
-export async function resetAllRecommendations() {
-  setCache('recs', {});
-}
-export async function resetAllJobsAndSkills() {
-  await resetAllJobs();
-  await resetAllSkills();
-}
-export async function resetAllJobsAndRecommendations() {
-  await resetAllJobs();
-  await resetAllRecommendations();
 }

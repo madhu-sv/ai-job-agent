@@ -15,6 +15,7 @@ export default function UploadCVPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [roles, setRoles] = useState<string[]>([]);
   const [minSalary, setMinSalary] = useState<number>(0);
+  const [location, setLocation] = useState<string>('London');
   const [loadingSkills, setLoadingSkills] = useState(false);
   const [loadingRecs, setLoadingRecs] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +27,7 @@ export default function UploadCVPage() {
     setFile(e.target.files?.[0] || null);
   };
 
-  const extractSkills = async (e: FormEvent): Promise<void> => {
+  const extractSkills = async (e: FormEvent) => {
     e.preventDefault();
     if (!file) {
       setError('Please select a file first.');
@@ -41,7 +42,10 @@ export default function UploadCVPage() {
     try {
       const fd = new FormData();
       fd.append('cv', file);
-      const res = await fetch('/api/extractCVSkills', { method: 'POST', body: fd });
+      const res = await fetch('/api/extractCVSkills', {
+        method: 'POST',
+        body: fd,
+      });
       const json = await res.json();
       if (json.error) throw new Error(json.error);
 
@@ -51,18 +55,15 @@ export default function UploadCVPage() {
         setSkills({ technicalSkills: json.skills });
       }
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      }
+      setError(err instanceof Error ? err.message : 'Failed to extract skills');
     } finally {
       setLoadingSkills(false);
     }
-    return;
   };
 
-  const getRecommendations = async (): Promise<void> => {
+  const getRecommendations = async () => {
     const tech = skills.technicalSkills || [];
-    if (!tech.length) {
+    if (tech.length === 0) {
       setError('No skills to base recommendations on');
       return;
     }
@@ -71,39 +72,20 @@ export default function UploadCVPage() {
     setLoadingRecs(true);
 
     try {
-      const payload = { skills, roles, minSalary };
+      // Send only the raw skills array
+      const payload = { skills: tech, roles, minSalary, location };
       const res = await fetch('/api/recommendations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
       const { recommended } = await res.json();
-
-      // **Transform** LLM JSON → Job[]
-      type RecommendedJob = {
-        title?: string;
-        company?: string;
-        location?: string;
-        url?: string;
-      };
-
-      const jobsData = (recommended || []).map((r: RecommendedJob) => ({
-        job_title: r.title ?? '',
-        employer_name: r.company ?? '',
-        job_city: r.location,
-        job_country: '',
-        employer_logo: '',
-        job_apply_link: r.url ?? '',
-      }));
-      setJobs(jobsData);
-    } catch (e: unknown) {
-      if (e instanceof Error) {
-        setError(e.message);
-      }
+      setJobs(recommended || []);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to get recommendations');
     } finally {
       setLoadingRecs(false);
     }
-    return;
   };
 
   return (
@@ -159,8 +141,17 @@ export default function UploadCVPage() {
             <div className="flex gap-2">
               <input
                 type="text"
+                placeholder="Location (e.g., London)"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                className="p-2 border rounded flex-1"
+              />
+              <input
+                type="text"
                 placeholder="Desired roles, comma-separated"
-                onChange={(e) => setRoles(e.target.value.split(',').map((r) => r.trim()))}
+                onChange={(e) =>
+                  setRoles(e.target.value.split(',').map((r) => r.trim()))
+                }
                 className="p-2 border rounded flex-1"
               />
               <input

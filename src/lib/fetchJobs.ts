@@ -37,17 +37,25 @@ export async function fetchJobs(query: string, location: string, type: string): 
   return data.data ?? [];
 }
 
+/** Overload signatures */
+export function fetchAllJobs(): Promise<Job[]>;
+export function fetchAllJobs(query: string, location?: string, type?: string): Promise<Job[]>;
+
 /**
  * Fetch a broader set of jobs to seed your in-memory “index.”
  * 👉 In production you’d page through everything or pull from your DB.
  * Here we stub by doing a single “software” search; adjust as needed.
  */
-export async function fetchAllJobs(): Promise<Job[]> {
+export async function fetchAllJobs(
+  query = 'Software',
+  location = 'London',
+  type = ''
+): Promise<Job[]> {
   try {
-    // e.g. pull a bucket of Software jobs in London
-    return await fetchJobs('Software', 'London', '');
+    return await fetchJobs(query, location, type);
   } catch (e) {
     console.error('fetchAllJobs failed:', e);
     return [];
   }
 }
+

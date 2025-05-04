@@ -1,31 +1,35 @@
 // __tests__/JobSearchForm.test.tsx
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, fireEvent, screen, waitFor } from '@testing-library/react';
 import JobSearchForm from '@/components/JobSearchForm';
 
-type Job = {
-  job_title: string;
-  employer_name: string;
-  job_apply_link: string;
-};
-
 describe('<JobSearchForm />', () => {
+  const mockOnResults = jest.fn();
+
+  // Suppress console.error for this test suite
   beforeEach(() => {
-    jest.resetAllMocks();
-    // @ts-expect-error: Mocking global.fetch for testing purposes
-    global.fetch = jest.fn();
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockOnResults.mockReset();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('renders inputs and calls onResults with data', async () => {
-    const mockOnResults = jest.fn();
-    const fakeJobs: Job[] = [{ job_title: 'X', employer_name: 'Y', job_apply_link: '#' }];
+    const fakeJobs = [
+      { job_title: 'Frontend Developer', employer_name: 'Acme', job_apply_link: '#' },
+    ];
 
-    // @ts-expect-error: Mocking global.fetch for testing purposes
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    jest.spyOn(global, 'fetch').mockResolvedValueOnce({
       ok: true,
+      status: 200,
+      statusText: 'OK',
+      headers: new Headers(),
+      redirected: false,
       json: async () => ({ results: fakeJobs }),
-    });
+    } as Response);
 
-    render(<JobSearchForm onResults={mockOnResults} />);
+    render(<JobSearchForm onResults={mockOnResults} onSearch={() => Promise.resolve()} />);
 
     // Fill in the form
     fireEvent.change(screen.getByLabelText('query'), {
@@ -34,7 +38,7 @@ describe('<JobSearchForm />', () => {
     fireEvent.change(screen.getByLabelText('type'), {
       target: { value: 'FULLTIME' },
     });
-    fireEvent.click(screen.getByLabelText('remote'));
+    fireEvent.click(screen.getByRole('radio', { name: /remote/i }));
 
     // Submit
     fireEvent.click(screen.getByRole('button', { name: /search jobs/i }));
@@ -44,11 +48,9 @@ describe('<JobSearchForm />', () => {
   });
 
   it('on fetch error calls onResults with empty array', async () => {
-    const mockOnResults = jest.fn();
-    // @ts-expect-error: Mocking global.fetch for testing purposes
-    (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('fail'));
+    global.fetch = jest.fn().mockRejectedValueOnce(new Error('fail'));
 
-    render(<JobSearchForm onResults={mockOnResults} />);
+    render(<JobSearchForm onResults={mockOnResults} onSearch={() => Promise.resolve()} />);
 
     // Submit without typing anything
     fireEvent.click(screen.getByRole('button', { name: /search jobs/i }));

@@ -48,7 +48,7 @@ describe('POST /api/recommendations', () => {
     extractSkillsMock.mockResolvedValueOnce(fakeSkills);
     recommendJobsMock.mockResolvedValueOnce(fakeJobs);
 
-    const payload = { cvText: 'dummy cv text', roles: ['Developer'], minSalary: 50000 };
+    const payload = { cvText: 'dummy cv text', roles: ['Developer'], minSalary: 50000, location: 'London' };
     const req = new Request('http://localhost/api/recommendations', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -62,16 +62,15 @@ describe('POST /api/recommendations', () => {
     expect(json).toEqual({ recommended: fakeJobs });
 
     expect(extractSkillsMock).toHaveBeenCalledWith(payload.cvText);
-    expect(recommendJobsMock).toHaveBeenCalledWith(fakeSkills, payload.roles, payload.minSalary);
+    expect(recommendJobsMock).toHaveBeenCalledWith(fakeSkills, payload.roles, payload.minSalary, payload.location);
   });
 
   it('returns 500 and error message on failure', async () => {
     extractSkillsMock.mockRejectedValueOnce(new Error('extract failed'));
 
-    const payload = { cvText: 'broken', roles: [], minSalary: 0 };
+    const payload = { cvText: 'broken', roles: [], minSalary: 0, location: 'London' };
     const req = new Request('http://localhost/api/recommendations', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
 
@@ -80,7 +79,7 @@ describe('POST /api/recommendations', () => {
     expect(res.status).toBe(500);
     const json = await res.json();
     expect(json).toMatchObject({
-      error: 'Recommendation failed',
+      error: 'Failed to extract skills',
       details: 'extract failed',
     });
 
